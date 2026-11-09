@@ -3,7 +3,7 @@
  */
 'use strict';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const FILES = { export: '/export.json.enc', budgets: '/budgets.json.enc', inbox: '/inbox' };
 const CAT = new Set(['EXPENSE', 'INCOME']);
 const $ = (s, r = document) => r.querySelector(s);
@@ -742,7 +742,7 @@ function renderSettings() {
   $('#sPassSave').addEventListener('click', async () => { const p = $('#sPass').value; if (p) await unlock(p, $('#sRem').checked); else { LS.set('pass', $('#sRem').checked && S.pass ? S.pass : null); toast('Saved'); } });
   $('#sLock').addEventListener('click', () => { S.pass = null; LS.set('pass', null); keyCache.clear(); S.raw = S.M = null; showLock(); });
   const dm = $('#sDemo'); if (dm) dm.addEventListener('click', () => startDemo());
-  const xd = $('#sExitDemo'); if (xd) xd.addEventListener('click', () => { LS.set('demo', null); location.hash = ''; location.reload(); });
+  const xd = $('#sExitDemo'); if (xd) xd.addEventListener('click', () => { exitDemo(); location.replace(Dbx.redirectUri()); });
   $('#sWipe').addEventListener('click', async () => {
     if (!$('#sWipe').dataset.sure) { $('#sWipe').dataset.sure = 1; $('#sWipe').textContent = 'Tap again to confirm'; $('#sWipe').style.color = 'var(--critical)'; return; }
     try { Object.keys(localStorage).filter(k => k.startsWith('mdm.')).forEach(k => localStorage.removeItem(k)); } catch { }
@@ -782,7 +782,7 @@ async function sync(manual) {
   try {
     await flushQueue();
     const meta = await Dbx.meta(FILES.export);
-    if (!meta) { toast('No export in Dropbox yet — run the bridge script on your PC'); }
+    if (!meta) { toast('No export in Dropbox yet — run the bridge script on your PC'); manual = false; }
     else {
       const cached = await IDB.get('export');
       if (!cached || cached.rev !== meta.rev || manual) {
@@ -865,6 +865,12 @@ function demoExport() {
     currencies: { EUR: { name: 'Euro', dp: 2, prefix: '€', suffix: '', toBase: 1 }, GEQ: { name: 'Global Equity ETF', dp: 4, toBase: 112.4 }, EBF: { name: 'Euro Bond Fund', dp: 4, toBase: 48.9 } },
     accounts: acc, txns: T, check: { ok: 8, bad: 0, sign: 1 }, log: [{ id: pid, status: 'imported', at: new Date().toISOString() }] };
 }
+function exitDemo() {
+  // drop everything that only made sense for the demo data
+  LS.set('demo', null);
+  savePending(pendingList().filter(p => !String(p.entry && p.entry.account).startsWith('demo-')));
+  const b = budgets(); if (Object.keys(b.items).some(k => k.startsWith('demo-'))) LS.set('budgets', null);
+}
 async function startDemo() {
   S.demo = true; LS.set('demo', 1);
   if (!Object.keys(budgets().items).length) LS.set('budgets', { v: 1, updated: 1, items: { 'demo-12': 450, 'demo-8': 1050, 'demo-15': 220, 'demo-19': 150 } });
@@ -877,6 +883,7 @@ async function startDemo() {
   applyTheme();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
   if (location.hash === '#demo' || LS.get('demo')) { await startDemo(); return; }
+  exitDemo();
   try { if (await Dbx.handleRedirect()) toast('Dropbox connected'); } catch (e) { toast(e.message); }
   S.pass = LS.get('pass');
   const env = await IDB.get('export');

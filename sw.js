@@ -1,6 +1,6 @@
 /* MD Mobile service worker: caches the app itself for offline use.
    Your financial data is never cached here (it is stored encrypted by the app). */
-const CACHE = 'mdmobile-v1.0.0';
+const CACHE = 'mdmobile-v1.0.1';
 const SHELL = ['./', './index.html', './app.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
